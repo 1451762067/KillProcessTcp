@@ -23,6 +23,7 @@
 
 using namespace std;
 
+//string为进程名 DWORD为对应的进程ID
 int GetProcessList(multimap<string, DWORD>  &ProcessList)
 {
     HANDLE hSnapshort = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -30,21 +31,20 @@ int GetProcessList(multimap<string, DWORD>  &ProcessList)
     {
         return 0;
     }
-    // 获得线程列表，里面记录了线程的详细信息，再使用Thread32First和Thread32Next遍历快照中记录的每个线程信息  
+    
     PROCESSENTRY32 stcProcessInfo;
     stcProcessInfo.dwSize = sizeof(stcProcessInfo);
 
     BOOL  bRet = Process32First(hSnapshort, &stcProcessInfo);
     while (bRet)
     {
-        
         ProcessList.insert(make_pair(stcProcessInfo.szExeFile, stcProcessInfo.th32ProcessID));
         bRet = Process32Next(hSnapshort, &stcProcessInfo);
     }
     CloseHandle(hSnapshort);
 }
 
-BOOL KillTcpConnect(int ProcID)  //关闭进程中的TCP连接
+BOOL KillTcpConnect(int ProcID) 
 {
     PMIB_TCPTABLE_OWNER_PID pTcpTable;
     DWORD dwSize = 0;
