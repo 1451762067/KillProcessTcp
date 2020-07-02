@@ -1,4 +1,4 @@
-﻿// cxx.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+// cxx.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
 //KillTcpConnect有关头文件
@@ -11,6 +11,8 @@
 //本demo用到的容器
 #include <vector>
 #include <map>
+
+
 #include "stdio.h"
 #include <stdlib.h>
 #include <iostream>
@@ -23,7 +25,6 @@
 
 using namespace std;
 
-//string为进程名 DWORD为对应的进程ID
 int GetProcessList(multimap<string, DWORD>  &ProcessList)
 {
     HANDLE hSnapshort = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -31,20 +32,21 @@ int GetProcessList(multimap<string, DWORD>  &ProcessList)
     {
         return 0;
     }
-    
+    // 获得线程列表，里面记录了线程的详细信息，再使用Thread32First和Thread32Next遍历快照中记录的每个线程信息  
     PROCESSENTRY32 stcProcessInfo;
     stcProcessInfo.dwSize = sizeof(stcProcessInfo);
 
     BOOL  bRet = Process32First(hSnapshort, &stcProcessInfo);
     while (bRet)
     {
+        
         ProcessList.insert(make_pair(stcProcessInfo.szExeFile, stcProcessInfo.th32ProcessID));
         bRet = Process32Next(hSnapshort, &stcProcessInfo);
     }
     CloseHandle(hSnapshort);
 }
 
-BOOL KillTcpConnect(int ProcID) 
+BOOL KillTcpConnect(int ProcID)  //关闭进程中的TCP连接
 {
     PMIB_TCPTABLE_OWNER_PID pTcpTable;
     DWORD dwSize = 0;
@@ -115,18 +117,55 @@ BOOL KillTcpConnect(int ProcID)
     return TRUE;
 }
 
+bool ParseValue(const std::string& _s, vector<string>& v, char separator)
+{
+    std::string sPart;
+    size_t pos;
+    std::string s = _s;
+    std::string sp;
+
+    sp.push_back(separator);
+
+    while (!s.empty())
+    {
+        pos = s.find(sp.c_str());
+
+        if (pos == std::string::npos)
+        {
+            sPart = s;
+            s.erase();
+        }
+        else
+        {
+            sPart = s.substr(0, pos);
+            s.erase(0, pos + 1);
+        }
+
+        if (!sPart.empty())
+        {
+            v.push_back(sPart);
+        }
+    }
+
+    return true;
+}
+
 
 int main(int argc, char** argv)
 {
     multimap<string, DWORD> processList;
     vector<DWORD> targetPIDs;
+    vector<string> exeList;
 
-    while (1)
-    {
-        char processName[20];
+    do{
+        char exe[20];
         printf("输入要杀死的进程名:");
-        memset(processName, 0, sizeof(processName));
-        scanf("%s", processName);
+        memset(exe, 0, sizeof(exe));
+        scanf("%s", exe);
+
+        //解析进程名列表
+        exeList.clear();
+        ParseValue(exe, exeList, ',');
 
         //获取最近进程列表
         processList.clear();
@@ -134,19 +173,25 @@ int main(int argc, char** argv)
 
         //获取目标进程的进程ID列表
         targetPIDs.clear();
-        for (auto p : processList){
-            if (p.first == processName)
-                targetPIDs.push_back(p.second);
+        for (auto p : processList)
+        {
+            for (auto e : exeList)
+            {
+                if (p.first == e)
+                {
+                    targetPIDs.push_back(p.second);
+                    break;
+                }
+            }
         }
-        
         //杀死
-        for (auto pid : targetPIDs){
+        for (auto pid : targetPIDs) {
             if (KillTcpConnect(pid))
-                printf("%s:%d 网络杀死成功\n", processName, pid);
+                printf("%d 网络杀死成功\n", pid);
             else
-                printf("%%s:%d  网络杀死失败\n", processName, pid);
-        }     
-    }
-  
+                printf("%d 网络杀死失败\n", pid);
+        }
+    } while (true);
+    
     return 0;
 }
